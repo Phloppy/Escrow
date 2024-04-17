@@ -34,10 +34,23 @@ def categorize_row(row):
     bai_description = row['BAI Description'] if pd.notna(row['BAI Description']) else ''
     detail = row['Detail'] if pd.notna(row['Detail']) else ''
 
-    # Check both conditions
+    # Earnnest
     if "ACH CREDIT" in bai_description.upper() and "EARNNEST" in detail.upper():
         return "EARNNEST"
-    return "Other"  # Default category if conditions are not met
+    
+    # Fund Transfers
+    elif "BOOK TRANSFER DEBIT" in bai_description.upper() and "FUNDS TRANSFER" in detail.upper():
+        return "FUNDS TRANSFER"
+    
+    # Remote Deposits
+    elif "REMOTE DEPOSIT" in bai_description.upper() or "DEPOSIT ITEM RETURNED" in bai_description.upper():
+        return "REMOTE DEPOSIT"
+    
+    # Check Paid
+    elif "CHECK PAID" in bai_description.upper():
+        return "CHECK PAID"
+    
+    return "Other"  # Default category if no conditions are met
 
 # Apply the categorization function
 cibcinfo['Category'] = cibcinfo.apply(categorize_row, axis=1)
@@ -47,6 +60,8 @@ cibcinfo['Category'] = cibcinfo.apply(categorize_row, axis=1)
 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
     cibcinfo.to_excel(writer, sheet_name='cibcFull', index=False)
     lonewolf.to_excel(writer, sheet_name='lonewolfFull', index=False)
+
+print("Recon Complete")
 
 
 
