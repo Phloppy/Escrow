@@ -32,14 +32,14 @@ output_path = os.path.join(output_folder_path, output_file)
 # Define conditions for categorization
 conditions_cibc = [
     ((('BAI Description', ['ACH CREDIT']), ('Detail', ['EARNNEST'])), 'EARNNEST'),
-    ((('BAI Description', ['BOOK TRANSFER DEBIT']), ('Detail', ['FUNDS TRANSFER'])), 'FUNDS TRANSFER'),
+    ((('BAI Description', ['BOOK TRANSFER DEBIT', 'BOOK TRANSFER CREDIT']), ('Detail', ['FUNDS TRANSFER'])), 'FUNDS TRANSFER'),
     ((('BAI Description', ['REMOTE DEPOSIT', 'DEPOSIT ITEM RETURNED']),), 'REMOTE DEPOSIT'),
     ((('BAI Description', ['CHECK PAID']),), 'CHECK PAID')
 ]
 
 # Conditions for lonewolf
 conditions_lonewolf = [
-    ((('refer', ['EARNNEST', 'Other_Keywords_As_Needed']),), 'EARNNEST'),
+    ((('refer', ['EARNNEST', 'EARNEST', 'EAR', 'NEST']),), 'EARNNEST'),
     ((('refer', ['WIRE', 'Other_Keywords_As_Needed']),), 'WIRE')
 ]
 
@@ -61,6 +61,9 @@ cibcinfo['Category'] = cibcinfo.apply(categorize_cibc, axis=1)
 # Categorization for lonewolf
 categorize_lonewolf = create_categorizer(conditions_lonewolf, default_category="REMOTE DEPOSIT")
 lonewolf['Category'] = lonewolf.apply(categorize_lonewolf, axis=1)
+
+#Print confirmation of categorization
+print("Categorization Complete")
 
 # Create an ExcelWriter object and use it to write data to separate sheets
 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
