@@ -29,32 +29,38 @@ output_file = 'escrowRecon.xlsx'
 # Concatenate full output path
 output_path = os.path.join(output_folder_path, output_file)
 
-# Function to categorize data based on specific keywords in given columns
-def categorize_row(row):
-    bai_description = row['BAI Description'] if pd.notna(row['BAI Description']) else ''
-    detail = row['Detail'] if pd.notna(row['Detail']) else ''
+# Define conditions for categorization
+conditions_cibc = [
+    ((('BAI Description', ['ACH CREDIT']), ('Detail', ['EARNNEST'])), 'EARNNEST'),
+    ((('BAI Description', ['BOOK TRANSFER DEBIT']), ('Detail', ['FUNDS TRANSFER'])), 'FUNDS TRANSFER'),
+    ((('BAI Description', ['REMOTE DEPOSIT', 'DEPOSIT ITEM RETURNED']),), 'REMOTE DEPOSIT'),
+    ((('BAI Description', ['CHECK PAID']),), 'CHECK PAID')
+]
 
-    # Earnnest
-    if "ACH CREDIT" in bai_description.upper() and "EARNNEST" in detail.upper():
-        return "EARNNEST"
-    
-    # Fund Transfers
-    elif "BOOK TRANSFER DEBIT" in bai_description.upper() and "FUNDS TRANSFER" in detail.upper():
-        return "FUNDS TRANSFER"
-    
-    # Remote Deposits
-    elif "REMOTE DEPOSIT" in bai_description.upper() or "DEPOSIT ITEM RETURNED" in bai_description.upper():
-        return "REMOTE DEPOSIT"
-    
-    # Check Paid
-    elif "CHECK PAID" in bai_description.upper():
-        return "CHECK PAID"
-    
-    return "Other"  # Default category if no conditions are met
+# Conditions for lonewolf
+conditions_lonewolf = [
+    ((('refer', ['EARNNEST', 'Other_Keywords_As_Needed']),), 'EARNNEST'),
+    ((('refer', ['WIRE', 'Other_Keywords_As_Needed']),), 'WIRE')
+]
+
+# Define a function to create categorization functions based on conditions
+def create_categorizer(conditions, default_category="Other"):
+    def categorize_row(row):
+        for condition, category in conditions:
+            if all(any(keyword.upper() in row[col].upper() if pd.notna(row[col]) else '' for keyword in keywords) for col, keywords in condition):
+                return category
+        return default_category  # Return the specified default category if no conditions are met
+    return categorize_row
+
+# Run categorization function using predefined conditions
+categorize_cibc = create_categorizer(conditions_cibc, default_category="Other")
 
 # Apply the categorization function
-cibcinfo['Category'] = cibcinfo.apply(categorize_row, axis=1)
+cibcinfo['Category'] = cibcinfo.apply(categorize_cibc, axis=1)
 
+# Categorization for lonewolf
+categorize_lonewolf = create_categorizer(conditions_lonewolf, default_category="REMOTE DEPOSIT")
+lonewolf['Category'] = lonewolf.apply(categorize_lonewolf, axis=1)
 
 # Create an ExcelWriter object and use it to write data to separate sheets
 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
