@@ -1,10 +1,23 @@
 Next Steps
-
+    - Create unique IDs for CIBC and LW data
+        - Date/Amount/Category
+        - By Category
+            - Check: Check #
+            - Earnnest: Detail
+            - Fund Transfer: Detail
+    - Account for ACCTVERIFY transactions
+    - Treat ACH like Earnnest but separate category
+    - 1:1 matches on name/address/date/Amount   
+        - if no match, look at all dates - flag as date descrepancy
+    - Destinguish between Account Fund Transfers and External Fund Transfers
+        - 
 
 Questions
     - CIBC Category:
         - How to categorize 'ACH Credits' in 'BAI Description'? Own category?
+            - Should be treated like EARNNEST
     - LW Category:
         -'CH#' in 'Refer' = Check Paid?
         - 'C/R ACH' in 'Refer' different category than remote deposit?
-    
+    - Comparison
+        - 

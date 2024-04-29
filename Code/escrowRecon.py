@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import openpyxl
 import numpy as np
+import re
 from fuzzywuzzy import process
 from tqdm import tqdm
 from pandas import ExcelWriter
@@ -13,11 +14,11 @@ from openpyxl.utils import get_column_letter
 # Replace with the path to the folder - omit last backslash '\'
 input_folder_path = r'C:\Users\jasonjasinski\OneDrive - At World Properties\Documents\Test\Escrow\Input' + '\\'
 
-# Specify file names
+# Specify input file names
 cibcFile = 'CIBC.xlsx'
 lwFile = 'Lonewolf.xlsx'
 
-# Creates full file paths
+# Creates full input file paths
 cibcPath = os.path.join(input_folder_path, cibcFile)
 lwPath = os.path.join(input_folder_path, lwFile)
 
@@ -42,7 +43,8 @@ date_style = NamedStyle(name='custom_date', number_format='YYYY/MM/DD')
 # Define conditions for categorization
 conditions_cibc = [
     ((('BAI Description', ['ACH CREDIT']), ('Detail', ['EARNNEST'])), 'EARNNEST'),
-    ((('BAI Description', ['BOOK TRANSFER DEBIT', 'BOOK TRANSFER CREDIT']), ('Detail', ['FUNDS TRANSFER'])), 'FUNDS TRANSFER'),
+    ((('BAI Description', ['BOOK TRANSFER DEBIT']), ('Detail', ['FUNDS TRANSFER'])), 'FUNDS TRANSFER'),
+    ((('BAI Description', ['BOOK TRANSFER CREDIT']), ('Detail', ['FUNDS TRANSFER'])), 'INCOMING FUNDS TRANSFER'),
     ((('BAI Description', ['REMOTE DEPOSIT', 'DEPOSIT ITEM RETURNED']),), 'REMOTE DEPOSIT'),
     ((('BAI Description', ['CHECK PAID']),), 'CHECK PAID'),
     ((('BAI Description', ['INCOMING WIRE TRANSFER', 'OUTGOING WIRE TRANSFER']),), 'WIRE TRANSFER')
@@ -50,17 +52,26 @@ conditions_cibc = [
 
 # Conditions for lonewolf
 conditions_lonewolf = [
-    ((('refer', ['EARNNEST', 'EARNEST', 'EAR', 'NEST']),), 'EARNNEST'),
-    ((('refer', ['WIRE', 'Other_Keywords_As_Needed']),), 'WIRE')
+    (('ref', ['EARNNEST', 'EARNEST', 'EAR', 'NEST']), 'EARNNEST'),
+    (('ref', ['WIRE', 'Other_Keywords_As_Needed']), 'WIRE'),
+    (('ref', ['EFT', 'Other_Keywords_As_Needed']), 'EFT'),
+    (('type', 'ref'), lambda type_val, ref_val: 'C' in type_val and 'EFT' not in ref_val, 'CHECK')
 ]
 
 # Define a function to create categorization functions based on conditions
 def create_categorizer(conditions, default_category="Other"):
     def categorize_row(row):
-        for condition, category in conditions:
-            if all(any(keyword.upper() in row[col].upper() if pd.notna(row[col]) else '' for keyword in keywords) for col, keywords in condition):
-                return category
-        return default_category  # Return the specified default category if no conditions are met
+        for condition in conditions:
+            if isinstance(condition[1], tuple):  # It's a keyword condition
+                column, keywords = condition[0]
+                category = condition[1]
+                if any(keyword.upper() in (row[column] if pd.notna(row[column]) else '').upper() for keyword in keywords):
+                    return category
+            else:  # It's a lambda condition with potentially multiple columns
+                columns, lambda_func, category = condition
+                if lambda_func(*[row[col] for col in columns]):  # Apply the lambda function to the column values
+                    return category
+        return default_category
     return categorize_row
 
 # Run categorization function using predefined conditions
@@ -108,20 +119,3 @@ with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
 print("Recon Complete")
 
 
-
-'''
-# Sample Code for conditional comparisons
-earnnestCondition = (cibcinfo['A'] > 10) & (df['B'] < 20)
-condition2 = (df['A'] <= 10) | (df['B'] >= 20)
-'''
-
-'''
-# Define choices based on conditions
-choices = ['Category 1', 'Category 2']
-
-# The conditions list should be in the same order as the choices
-conditions = [condition1, condition2]
-
-# Apply conditions and choices to the new column
-df['Category'] = np.select(conditions, choices, default='Other')
-'''
