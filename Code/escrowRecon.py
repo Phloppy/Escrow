@@ -10,6 +10,7 @@ from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
 from openpyxl.utils import get_column_letter
 
+########## INITIAL SETUP ###########
 
 # Replace with the path to the folder - omit last backslash '\'
 input_folder_path = r'C:\Users\jasonjasinski\OneDrive - At World Properties\Documents\Test\Escrow\Input' + '\\'
@@ -39,52 +40,57 @@ output_path = os.path.join(output_folder_path, output_file)
 date_style = NamedStyle(name='custom_date', number_format='YYYY/MM/DD')
 
 
+########## CATEGORIZATION ###########
 
-# Define conditions for categorization
-conditions_cibc = [
-    ((('BAI Description', ['ACH CREDIT']), ('Detail', ['EARNNEST'])), 'EARNNEST'),
-    ((('BAI Description', ['BOOK TRANSFER DEBIT']), ('Detail', ['FUNDS TRANSFER'])), 'FUNDS TRANSFER'),
-    ((('BAI Description', ['BOOK TRANSFER CREDIT']), ('Detail', ['FUNDS TRANSFER'])), 'INCOMING FUNDS TRANSFER'),
-    ((('BAI Description', ['REMOTE DEPOSIT', 'DEPOSIT ITEM RETURNED']),), 'REMOTE DEPOSIT'),
-    ((('BAI Description', ['CHECK PAID']),), 'CHECK PAID'),
-    ((('BAI Description', ['INCOMING WIRE TRANSFER', 'OUTGOING WIRE TRANSFER']),), 'WIRE TRANSFER')
-]
+### Categorize Lonewolf ###
 
-# Conditions for lonewolf
-conditions_lonewolf = [
-    (('ref', ['EARNNEST', 'EARNEST', 'EAR', 'NEST']), 'EARNNEST'),
-    (('ref', ['WIRE', 'Other_Keywords_As_Needed']), 'WIRE'),
-    (('ref', ['EFT', 'Other_Keywords_As_Needed']), 'EFT'),
-    (('type', 'ref'), lambda type_val, ref_val: 'C' in type_val and 'EFT' not in ref_val, 'CHECK')
-]
+def categorize_lonewolf(row):
+    # Check for 'EARNNEST' and similar keywords in 'ref'
+    if any(keyword in row['ref'].upper() for keyword in ['EARNNEST', 'EARNEST', 'EAR', 'NEST']):
+        return 'EARNNEST'
+    # Check for 'WIRE' and other related keywords in 'ref'
+    elif any(keyword in row['ref'].upper() for keyword in ['WIRE', 'Other_Keywords_As_Needed']):
+        return 'WIRE'
+    # Check for 'EFT' and other related keywords in 'ref'
+    elif any(keyword in row['ref'].upper() for keyword in ['EFT', 'Other_Keywords_As_Needed']):
+        return 'EFT'
+    # New condition to check 'type' for 'C' and ensure 'EFT' is not in 'ref'
+    elif 'C' in row['type'] and 'EFT' not in row['ref']:
+        return 'CHECK'
+    # Default category if no conditions are met
+    return 'Other'
 
-# Define a function to create categorization functions based on conditions
-def create_categorizer(conditions, default_category="Other"):
-    def categorize_row(row):
-        for condition in conditions:
-            if isinstance(condition[1], tuple):  # It's a keyword condition
-                column, keywords = condition[0]
-                category = condition[1]
-                if any(keyword.upper() in (row[column] if pd.notna(row[column]) else '').upper() for keyword in keywords):
-                    return category
-            else:  # It's a lambda condition with potentially multiple columns
-                columns, lambda_func, category = condition
-                if lambda_func(*[row[col] for col in columns]):  # Apply the lambda function to the column values
-                    return category
-        return default_category
-    return categorize_row
-
-# Run categorization function using predefined conditions
-categorize_cibc = create_categorizer(conditions_cibc, default_category="Other")
-# Apply the categorization function
-cibcinfo['Category'] = cibcinfo.apply(categorize_cibc, axis=1)
-# Categorization for lonewolf
-categorize_lonewolf = create_categorizer(conditions_lonewolf, default_category="REMOTE DEPOSIT")
 # Apply the categorization function
 lonewolf['Category'] = lonewolf.apply(categorize_lonewolf, axis=1)
 
+### Categorize CIBC ###
+def categorize_cibc(row):
+    if 'ACH CREDIT' in row['BAI Description'] and 'earnnest' in row['Detail'].lower():
+        return 'EARNNEST'
+    elif 'BOOK TRANSFER DEBIT' in row['BAI Description'] and 'FUNDS TRANSFER' in row['Detail']:
+        return 'FUNDS TRANSFER'
+    elif 'BOOK TRANSFER CREDIT' in row['BAI Description'] and 'FUNDS TRANSFER' in row['Detail']:
+        return 'INCOMING FUNDS TRANSFER'
+    elif any(desc in row['BAI Description'] for desc in ['REMOTE DEPOSIT', 'DEPOSIT ITEM RETURNED']):
+        return 'REMOTE DEPOSIT'
+    elif 'CHECK PAID' in row['BAI Description']:
+        return 'CHECK PAID'
+    elif any(wire in row['BAI Description'] for wire in ['INCOMING WIRE TRANSFER', 'OUTGOING WIRE TRANSFER']):
+        return 'WIRE TRANSFER'
+    return 'Other'
+
+# Apply the categorization function
+cibcinfo['Category'] = cibcinfo.apply(categorize_cibc, axis=1)
+
+
 #Print confirmation of categorization
 print("Categorization Complete")
+
+
+########## TRANSACTION COMPARISON ###########
+
+
+########## WRITE TO FILE ###########
 
 # Create an ExcelWriter object and use it to write data to separate sheets
 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
