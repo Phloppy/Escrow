@@ -54,6 +54,9 @@ def categorize_lonewolf(row):
     # Check for 'EFT' and other related keywords in 'ref'
     elif any(keyword in row['ref'].upper() for keyword in ['EFT', 'Other_Keywords_As_Needed']):
         return 'EFT'
+    # Check for 'C/R' and other related keywords in 'ref'
+    elif any(keyword in row['ref'].upper() for keyword in ['C/R', 'Other_Keywords_As_Needed']):
+        return 'REMOTE DEPOSIT'
     # New condition to check 'type' for 'C' and ensure 'EFT' is not in 'ref'
     elif 'C' in row['type'] and 'EFT' not in row['ref']:
         return 'CHECK'
@@ -108,7 +111,35 @@ lonewolf = lonewolf[['UniqueID'] + [col for col in lonewolf.columns if col != 'U
 
 ########## TRANSACTION MATCH ###########
 
+### EARNNEST ###
+# Extract substring from 'Detail' starting from the 50th character
+cibcinfo['address'] = cibcinfo['Detail'].apply(lambda x: str(x)[49:] if len(str(x)) > 49 else '')
 
+def match_earnest_transactions(cibc_row, lonewolf_df):
+    # Filter Lonewolf transactions by the same category and 'EARNNEST'
+    lonewolf_earnest = lonewolf_df[lonewolf_df['Category'] == 'EARNNEST']
+    
+    # First check: same Date, Category, and Amount
+    filtered = lonewolf_earnest[(lonewolf_earnest['date'] == cibc_row['Post']) & (lonewolf_earnest['amount'] == cibc_row['Transaction Amount'])]
+    if not filtered.empty:
+        best_match, score = process.extractOne(cibc_row['address'], filtered['address'].tolist())
+        if score >= 80:
+            return 'Match', filtered[filtered['address'] == best_match]['UniqueID'].iloc[0]
+        # Second check: Ignore Date
+        best_match, score = process.extractOne(cibc_row['address'], lonewolf_earnest[lonewolf_earnest['amount'] == cibc_row['Transaction Amount']]['address'].tolist())
+        if score >= 80:
+            return 'Match - Date Variance', lonewolf_earnest[lonewolf_earnest['address'] == best_match]['UniqueID'].iloc[0]
+
+    # Third check: Ignore Date and Category
+    best_match, score = process.extractOne(cibc_row['address'], lonewolf_df[lonewolf_df['amount'] == cibc_row['Transaction Amount']]['address'].tolist())
+    if score >= 80:
+        return 'Match - Category Variance', lonewolf_df[lonewolf_df['address'] == best_match]['UniqueID'].iloc[0]
+
+    return 'No Match', None
+
+results = cibcinfo[cibcinfo['Category'] == 'EARNNEST'].apply(lambda row: match_earnest_transactions(row, lonewolf), axis=1)
+cibcinfo.loc[cibcinfo['Category'] == 'EARNNEST', 'Match Result'] = results.apply(lambda x: x[0])
+cibcinfo.loc[cibcinfo['Category'] == 'EARNNEST', 'Lonewolf UniqueID'] = results.apply(lambda x: x[1])
 
 
 ########## WRITE TO FILE ###########
