@@ -123,13 +123,13 @@ def extract_information(row):
         # Extract address for EARNNEST
         address = detail[49:] if len(detail) > 49 else ''
     elif category == 'WIRE TRANSFER':
-        # Extract address for WIRE TRANSFER
-        index = detail.find(' OBI ')
-        address = detail[index - 5:] if index != -1 else ''
         # Extract name for WIRE TRANSFER
         start = detail.find('ORG ')
         end = detail.find(' OBI', start)
-        name = detail[start + 4:end] if start != -1 and end != -1 and start < end else ''
+        name = detail[start + 4:end].strip() if start != -1 and end != -1 and start < end else ''
+        # Extract address for WIRE TRANSFER
+        index = detail.find(' OBI ')
+        address = detail[index:].strip() if index != -1 else ''  # Correctly start after ' OBI '
 
     # Return the extracted address and name
     return address, name
