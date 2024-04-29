@@ -109,10 +109,40 @@ cibcinfo = cibcinfo[['UniqueID'] + [col for col in cibcinfo.columns if col != 'U
 lonewolf = lonewolf[['UniqueID'] + [col for col in lonewolf.columns if col != 'UniqueID']]
 
 
+########## CIBC INFORMATION EXTRACTION ###########
+
+def extract_information(row):
+    category = row['Category']
+    detail = str(row['Detail'])
+
+    # Default values
+    address = ''
+    name = ''
+
+    if category == 'EARNNEST':
+        # Extract address for EARNNEST
+        address = detail[49:] if len(detail) > 49 else ''
+    elif category == 'WIRE TRANSFER':
+        # Extract address for WIRE TRANSFER
+        index = detail.find(' OBI ')
+        address = detail[index - 5:] if index != -1 else ''
+        # Extract name for WIRE TRANSFER
+        start = detail.find('ORG ')
+        end = detail.find(' OBI', start)
+        name = detail[start + 4:end] if start != -1 and end != -1 and start < end else ''
+
+    # Return the extracted address and name
+    return address, name
+
+# Apply the function and create new columns
+cibcinfo[['address', 'Name']] = cibcinfo.apply(extract_information, axis=1, result_type='expand')
+
+
+
 ########## TRANSACTION MATCH ###########
 
 ### EARNNEST ###
-# Extract substring from 'Detail' starting from the 50th character
+# Extract address from 'Detail' starting from the 50th character
 cibcinfo['address'] = cibcinfo['Detail'].apply(lambda x: str(x)[49:] if len(str(x)) > 49 else '')
 
 def match_earnest_transactions(cibc_row, lonewolf_df):
