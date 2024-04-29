@@ -27,7 +27,7 @@ lwPath = os.path.join(input_folder_path, lwFile)
 cibcinfo = pd.read_excel(cibcPath, sheet_name='cibc')
 lonewolf = pd.read_excel(lwPath, sheet_name='lonewolf')
 
-# Specify Output Path
+# Specify Output Folder Path
 output_folder_path = r'C:\Users\jasonjasinski\OneDrive - At World Properties\Documents\Test\Escrow\Output' + '\\'
 
 # Specify name of output Excel file
@@ -87,7 +87,28 @@ cibcinfo['Category'] = cibcinfo.apply(categorize_cibc, axis=1)
 print("Categorization Complete")
 
 
-########## TRANSACTION COMPARISON ###########
+########## GENERATE IDS ###########
+
+# Generate BaseID
+cibcinfo['UniqueID'] = cibcinfo['Post'].dt.strftime('%Y%m%d') + '_' + cibcinfo['Transaction Amount'].astype(str) + '_' + cibcinfo['Category']
+lonewolf['UniqueID'] = lonewolf['date'].dt.strftime('%Y%m%d') + '_' + lonewolf['amount'].astype(str) + '_' + lonewolf['Category']
+
+# Sequencial counter for transactions with the same BaseID
+cibcinfo['Counter'] = cibcinfo.groupby('UniqueID').cumcount() + 1
+lonewolf['Counter'] = lonewolf.groupby('UniqueID').cumcount() + 1
+
+# Append the counter to the BaseID to ensure uniqueness
+cibcinfo['UniqueID'] = cibcinfo['UniqueID'] + '_' + cibcinfo['Counter'].astype(str)
+lonewolf['UniqueID'] = lonewolf['UniqueID'] + '_' + lonewolf['Counter'].astype(str)
+
+# Place UniqueID in the first column
+cibcinfo = cibcinfo[['UniqueID'] + [col for col in cibcinfo.columns if col != 'UniqueID']]
+lonewolf = lonewolf[['UniqueID'] + [col for col in lonewolf.columns if col != 'UniqueID']]
+
+
+########## TRANSACTION MATCH ###########
+
+
 
 
 ########## WRITE TO FILE ###########
