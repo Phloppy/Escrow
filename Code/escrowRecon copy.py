@@ -10,7 +10,7 @@ from openpyxl import Workbook
 from openpyxl.styles import NamedStyle
 from openpyxl.utils import get_column_letter
 
-########## INITIAL SETUP ########### 
+########## INITIAL SETUP ###########
 
 # Replace with the path to the folder - omit last backslash '\'
 input_folder_path = r'C:\Users\jasonjasinski\OneDrive - At World Properties\Documents\Test\Escrow\Input' + '\\'
@@ -55,7 +55,7 @@ def categorize_lonewolf(row):
     # Check for 'C/R' and other related keywords in 'ref'
     elif any(keyword in row['ref'].upper() for keyword in ['C/R', 'Other_Keywords_As_Needed']):
         return 'REMOTE DEPOSIT'
-    # New condition to check 'type' for 'C' and ensure 'EFT' is not in 'ref'
+    # New condition to check 'type' for 'C' and ensure 'EFT' is not in row['ref']
     elif 'C' in row['type'] and 'EFT' not in row['ref']:
         return 'CHECK'
     # Default category if no conditions are met
@@ -126,7 +126,7 @@ def extract_information(row):
         obi_match = re.search(r'\sOBI\s(.+)', detail)
         if obi_match:
             address = obi_match.group(1).strip()
-            print(address)
+            print(address)  # This print statement is for debugging
 
     # Return the extracted address and name
     return address, name
@@ -136,6 +136,10 @@ cibcinfo[['address', 'Name']] = cibcinfo.apply(extract_information, axis=1, resu
 
 # Ensure 'address' column is of string type
 cibcinfo['address'] = cibcinfo['address'].astype(str)
+
+# Print the DataFrame to debug
+print("Debug Information:")
+print(cibcinfo[['Detail', 'address', 'Name']])
 
 ########## TRANSACTION MATCH ###########
 
